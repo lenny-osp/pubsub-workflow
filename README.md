@@ -32,8 +32,6 @@ The following steps describe how a message flows in Pub/Sub:
 
 ## Status of a message in Pub/Sub
 
-While a message is outstanding to a subscriber, Pub/Sub tries not to deliver it to any other subscriber on the same subscription. The subscriber has a configurable, limited amount of time, known as the ackDeadline, to acknowledge the outstanding message. After the deadline passes, the message is no longer considered outstanding, and Pub/Sub attempts to redeliver the message.
-
 There can be three states for a message in a Pub/Sub service:
 
 * **Acknowledged messages (acked)**. After a subscriber application processes a message sent from a topic to a subscription, it sends an acknowledgment back to Pub/Sub. If all the subscriptions on a topic have acknowledged the message, the message is asynchronously deleted from the publish message source and from storage.
@@ -49,17 +47,16 @@ When there are multiple publisher and subscriber clients, you must also choose t
 
 Some of the supported Pub/Sub publish subscribe patterns include the following:
 
-* **Fan in (many-to-one)**. In this example, multiple publisher applications publish messages to a single topic. This single topic is attached to a single subscription. The subscription is, in turn, connected to a single subscriber application that gets all the published messages from the topic.
-
-* **Load balanced (many-to-many)**. In this example, a single or multiple publisher applications publish messages to a single topic. This single topic is attached to a single subscription that is, in turn, connected to multiple subscriber applications. Each of the subscriber applications gets a subset of the published messages, and no two subscriber applications get the same subset of messages. In this load balancing case, you use multiple subscribers to process messages at scale. If more messages need to be supported, you add more subscribers to receive messages from the same subscription.
-
-* **Fan out (one-to-many)**. In this example, a single or multiple publisher applications publish messages to a single topic. This single topic is attached to multiple subscriptions. Each subscription is connected to a single subscriber application. Each of the subscriber applications gets the same set of published messages from the topic. When a topic has multiple subscriptions, then every message has to be sent to a subscriber receiving messages on behalf of each subscription. If you need to perform different data operations on the same set of messages, fan out is a good option. You can also attach multiple subscribers to each subscription and get a load-balanced subset of messages for each subscriber.
+* **Fan in (many-to-one)**.
+* **Load balanced (many-to-many)**.
+* **Fan out (one-to-many)**.
 
 In ReSy, we use **Fan in (many-to-one)** and **Fan out (one-to-many)** pattern.
 
 ## Push subscription workflow
 
-In a push subscription, a Pub/Sub server initiates a request to your subscriber client to deliver messages.
+There are multiple ways a published message can be delivered to a subscriber. ReSy uses the Push Subscription paradigm. In a push subscription, a Pub/Sub server initiates a request to your subscriber client to deliver messages.
+
 ![subscriber_push](subscriber_push.png)
 
 1. The Pub/Sub server sends each message as an HTTPS request to the subscriber client at a pre-configured endpoint. This request is shown as a PushRequest in the image.
@@ -73,8 +70,10 @@ After you receive a push request, return an HTTP status code. To acknowledge the
 * 202
 * 204
 
-To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. 
+To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. Pub/Sub will retry until the defined max deliver attempts limit is reached. After that, the message will be delivered to the dead letter queue defined for the subscription. For example, a subscription is defined for the shipmentunpack service here: https://github.com/otto-ec/backfish_resy_gcp/blob/a2e94a22222e3a4c7bbc2fde6308c01cd8644943/terraform/shipmentunpack/subscribtion.tf#L1-L12.
 
 ## ReSy pubsub workflow
 
 [workflow.drawio](eventmessage-flow.drawio ':include :type=code')
+
+**To be done: Add description of the workflow**
