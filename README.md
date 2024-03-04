@@ -76,4 +76,19 @@ To send a negative acknowledgment for the message, return any other status code.
 
 [workflow.drawio](eventmessage-flow.drawio ':include :type=code')
 
-**To be done: Add description of the workflow**
+### The description of **outbound1 event** workflow
+1. *myService1* sends *outbound1 event* to *outbound1 topic*.
+2. *push-myService2 subscription* recieves *outbound1 event* from *outbound1 topic*.
+3. *push-myService2 subscription* sends *outbound1 event* to *myService2 subscriber*.
+4. *myService2 subscriber* processes *outbound1 event* from *myService1* as inbound event.
+5. After *myService2 subscriber* for *push-myService2 subscription* has ***acknowledged*** the *outbound1 event*, *outbound1 topic* deletes the *outbound1 event* from storage.
+6. After *myService2 subscriber* for *push-myService2 subscription* has ***nacknowledged*** the *outbound1 event*, *outbound1-dl topic* saves *outbound1 event*, and *outbound1 topic* deletes the *outbound1 event* from storage.
+7. The workflow of *push-myService3 subscription* and *myService3 subscriber* are same as *push-myService2 subscription* and *myService2 subscriber*.
+
+### The description of **outbound2 event** workflow
+1. *myService1* sends *outbound2 event* to *outbound2 topic*.
+2. *push-myService4 subscription* recieves *outbound2 event* from *outbound2 topic*.
+3. *push-myService4 subscription* sends *outbound2 event* to *myService4 subscriber*.
+4. *myService4 subscriber* processes *outbound2 event* from *myService1* as inbound event.
+5. After *myService4 subscriber* for *push-myService4 subscription* has ***acknowledged*** the *outbound2 event*, *outbound2 topic* deletes the *outbound2 event* from storage.
+6. After *myService4 subscriber* for *push-myService4 subscription* has ***nacknowledged*** the *outbound2 event*, *outbound2-dl topic* saves *outbound2 event*, and *outbound2 topic* deletes the *outbound2 event* from storage.
