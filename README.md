@@ -72,23 +72,35 @@ After you receive a push request, return an HTTP status code. To acknowledge the
 
 To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. Pub/Sub will retry until the defined max deliver attempts limit is reached. After that, the message will be delivered to the dead letter queue defined for the subscription. For example, a subscription is defined for the shipmentunpack service here: https://github.com/otto-ec/backfish_resy_gcp/blob/a2e94a22222e3a4c7bbc2fde6308c01cd8644943/terraform/shipmentunpack/subscribtion.tf#L1-L12.
 
-## ReSy pubsub workflow
+## ReSy pubsub workflow sample
 
 [workflow.drawio](eventmessage-flow.drawio ':include :type=code')
 
-### The description of **outbound1 event** workflow
-1. *myService1* sends *outbound1 event* to *outbound1 topic*.
-2. *push-myService2 subscription* recieves *outbound1 event* from *outbound1 topic*.
-3. *push-myService2 subscription* sends *outbound1 event* to *myService2 subscriber*.
-4. *myService2 subscriber* processes *outbound1 event* from *myService1* as inbound event.
-5. After *myService2 subscriber* for *push-myService2 subscription* has ***acknowledged*** the *outbound1 event*, *outbound1 topic* deletes the *outbound1 event* from storage.
-6. After *myService2 subscriber* for *push-myService2 subscription* has ***nacknowledged*** the *outbound1 event*, *outbound1-dl topic* saves *outbound1 event*, and *outbound1 topic* deletes the *outbound1 event* from storage.
-7. The workflow of *push-myService3 subscription* and *myService3 subscriber* are same as *push-myService2 subscription* and *myService2 subscriber*.
+### The description of **Outbound1 event** workflow
+1. *Service1* sends *Event1* to *Outbound1* topic.
+2. *push-Service2* subscription recieves *Outbound1 event* from *Outbound1 topic*.
+3. *push-Service3* subscription recieves *Outbound1 event* from *Outbound1 topic*.
+4. *push-Service2* subscription sends HTTP request to the HTTP endpoint of *Service 2* and put *Event1* in the request body.
+5. *push-Service3* subscription sends HTTP request to the HTTP endpoint of *Service 3* and put *Event1* in the request body.
 
-### The description of **outbound2 event** workflow
-1. *myService1* sends *outbound2 event* to *outbound2 topic*.
-2. *push-myService4 subscription* recieves *outbound2 event* from *outbound2 topic*.
-3. *push-myService4 subscription* sends *outbound2 event* to *myService4 subscriber*.
-4. *myService4 subscriber* processes *outbound2 event* from *myService1* as inbound event.
-5. After *myService4 subscriber* for *push-myService4 subscription* has ***acknowledged*** the *outbound2 event*, *outbound2 topic* deletes the *outbound2 event* from storage.
-6. After *myService4 subscriber* for *push-myService4 subscription* has ***nacknowledged*** the *outbound2 event*, *outbound2-dl topic* saves *outbound2 event*, and *outbound2 topic* deletes the *outbound2 event* from storage.
+#### Successful event processing by *Service2*
+1. *Service2* successfully processes *Event1*.
+2. *Service2* replies the HTTP request back to *push-Service2* subscription with HTTP Status Code 200 (or any code in the successful code list).
+3. *Event1* is regarded as "acked".
+
+#### Unsuccessful event processing by *Service3*
+1. *Service3* fails at processing *Event1*
+2. *Service3* performs error handling process (see next section for details)
+3. *Service3* decides that retry is needed and replies the HTTP request back to *push-Service3* subscription with HTTP Status Code 500 (or any code no in the successful code list).
+4. *push-Service3* subscription receives HTTP 500 and sees it as a "nacked" for *Event1*.
+5. *push-Service3* check if retry limit is reached for *Event1*. If not, invokes the HTTP endpoint of *Service3*.
+6. If retry lmit is reached for *Event1*, *push-Service3* delievers the event to the designated dead letter queue *Outbound1-dl* and stops processing.
+
+#### Details of error handling process performed by *Service3*
+[error-handling.drawio](eventmessage-flow.drawio ':include :type=code')
+
+1. *Service3* encounters processing error of *Event1*
+2. *Service3* writes error logs if necessary. In general, if the error is an expected behavior and no further attention or operation is needed, the error does not need to be logged.
+3. *Service3* publishes the error to the errorMessage pubsub topic if necessary. In general, a backend service does not need to publish the error to errorMessage. On the contrary, a handler service should publish the error such that RESY adminstrator can check the error details from the Error Handelr UI.
+4. *Service3* decides if the failing *Event1* should be retried. In general, a business error should not be retried, because no matter how many retries are attempted, it will fail again. On the contrary, a technical error could worth a retry. For example, an unexpected MongoDB error could be fixed for the second time due to a temporary network outage.
+5. *Service3* decides if it should shutdown the service itself. This could be related to the decision of point 4 above. A buseinss error does not need a shutdown. On the contrary, a technical error might be fixed by shutting down the service and restart.
