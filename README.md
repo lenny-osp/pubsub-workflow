@@ -72,23 +72,23 @@ After you receive a push request, return an HTTP status code. To acknowledge the
 
 To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. Pub/Sub will retry until the defined max deliver attempts limit is reached. After that, the message will be delivered to the dead letter queue defined for the subscription. For example, a subscription is defined for the shipmentunpack service here: https://github.com/otto-ec/backfish_resy_gcp/blob/a2e94a22222e3a4c7bbc2fde6308c01cd8644943/terraform/shipmentunpack/subscribtion.tf#L1-L12.
 
-## ReSy pubsub workflow sample
+# ReSy event workflow sample
 
 [workflow.drawio](eventmessage-flow.drawio ':include :type=code')
 
-### The description of **Outbound1 event** workflow
+## The description of **Outbound1 event** workflow
 1. *Service1* sends *Event1* to *Outbound1* topic.
 2. *push-Service2* subscription recieves *Outbound1 event* from *Outbound1 topic*.
 3. *push-Service3* subscription recieves *Outbound1 event* from *Outbound1 topic*.
 4. *push-Service2* subscription sends HTTP request to the HTTP endpoint of *Service 2* and put *Event1* in the request body.
 5. *push-Service3* subscription sends HTTP request to the HTTP endpoint of *Service 3* and put *Event1* in the request body.
 
-#### Successful event processing by *Service2*
+### Successful event processing by *Service2*
 1. *Service2* successfully processes *Event1*.
 2. *Service2* replies the HTTP request back to *push-Service2* subscription with HTTP Status Code 200 (or any code in the successful code list).
 3. *Event1* is regarded as "acked".
 
-#### Unsuccessful event processing by *Service3*
+### Unsuccessful event processing by *Service3*
 1. *Service3* fails at processing *Event1*
 2. *Service3* performs error handling process (see next section for details)
 3. *Service3* decides that retry is needed and replies the HTTP request back to *push-Service3* subscription with HTTP Status Code 500 (or any code no in the successful code list).
@@ -96,11 +96,16 @@ To send a negative acknowledgment for the message, return any other status code.
 5. *push-Service3* check if retry limit is reached for *Event1*. If not, invokes the HTTP endpoint of *Service3*.
 6. If retry lmit is reached for *Event1*, *push-Service3* delievers the event to the designated dead letter queue *Outbound1-dl* and stops processing.
 
-#### Details of error handling process performed by *Service3*
+## Details of error handling process performed by *Service3*
 [error-handling.drawio](eventmessage-flow.drawio ':include :type=code')
 
 1. *Service3* encounters processing error of *Event1*
 2. *Service3* writes error logs if necessary. In general, if the error is an expected behavior and no further attention or operation is needed, the error does not need to be logged.
-3. *Service3* publishes the error to the errorMessage pubsub topic if necessary. In general, a backend service does not need to publish the error to errorMessage. On the contrary, a handler service should publish the error such that RESY adminstrator can check the error details from the Error Handelr UI.
-4. *Service3* decides if the failing *Event1* should be retried. In general, a business error should not be retried, because no matter how many retries are attempted, it will fail again. On the contrary, a technical error could worth a retry. For example, an unexpected MongoDB error could be fixed for the second time due to a temporary network outage.
-5. *Service3* decides if it should shutdown the service itself. This could be related to the decision of point 4 above. A buseinss error does not need a shutdown. On the contrary, a technical error might be fixed by shutting down the service and restart.
+3. *Service3* decides if the error is a business error or a technical error.
+    * In general, if the event contains error such as incorrect inbound data and cannot be fixed without the publisher fixing the data and sending the event again, it can be regarded as business errors. Such errors will not need any retry because no matter how many retries attempted, the same error will happen again.
+    * On the contrary, if the error is caused by an unexpected technical reason such as MongoDB connection errors, it should be treated as a technical error. Such errors could be retried as the next attempt might succeed after a temporary network outage.
+4. If the error falls into the business category, *Service3* responds the HTTP request with HTTP Status Code 200 (or any other codes in the successful code list) to mark the event as acked and ends the process.
+5. If the error falls into the technical category, *Service3* will
+    * publish the error to errorMessage pubsub topic, such that RESY administrators will have a chance to check the error details from Error Handler UI and triggers retries from there.
+    * return with HTTP Status Code 500 or any other codes not in the successful code list to marked the event as nacked which will in turn trigger a retry.
+    * send a shutdown signal to shutdown the service, in the hope that after the service restarted the technical error could go away.
