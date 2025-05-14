@@ -51,11 +51,10 @@ Some of the supported Pub/Sub publish subscribe patterns include the following:
 * **Load balanced (many-to-many)**.
 * **Fan out (one-to-many)**.
 
-In ReSy, we use **Fan in (many-to-one)** and **Fan out (one-to-many)** pattern.
 
 ## Push subscription workflow
 
-There are multiple ways a published message can be delivered to a subscriber. ReSy uses the Push Subscription paradigm. In a push subscription, a Pub/Sub server initiates a request to your subscriber client to deliver messages.
+There are multiple ways a published message can be delivered to a subscriber. In a push subscription, a Pub/Sub server initiates a request to your subscriber client to deliver messages.
 
 ![subscriber_push](subscriber_push.png)
 
@@ -70,9 +69,9 @@ After you receive a push request, return an HTTP status code. To acknowledge the
 * 202
 * 204
 
-To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. Pub/Sub will retry until the defined max deliver attempts limit is reached. After that, the message will be delivered to the dead letter queue defined for the subscription. For example, a subscription is defined for the shipmentunpack service here: https://github.com/otto-ec/backfish_resy_gcp/blob/a2e94a22222e3a4c7bbc2fde6308c01cd8644943/terraform/shipmentunpack/subscribtion.tf#L1-L12.
+To send a negative acknowledgment for the message, return any other status code. If you send a negative acknowledgment or the acknowledgment deadline expires, Pub/Sub resends the message. Pub/Sub will retry until the defined max deliver attempts limit is reached. After that, the message will be delivered to the dead letter queue defined for the subscription.
 
-# ReSy event workflow sample
+# Event workflow sample
 
 [workflow.drawio](eventmessage-flow.drawio ':include :type=code')
 
@@ -106,6 +105,6 @@ To send a negative acknowledgment for the message, return any other status code.
     * On the contrary, if the error is caused by an unexpected technical reason such as MongoDB connection errors, it should be treated as a technical error. Such errors could be retried as the next attempt might succeed after a temporary network outage.
 4. If the error falls into the business category, *Service3* responds the HTTP request with HTTP Status Code 200 (or any other codes in the successful code list) to mark the event as acked and ends the process.
 5. If the error falls into the technical category, *Service3* will
-    * publish the error to errorMessage pubsub topic, such that RESY administrators will have a chance to check the error details from Error Handler UI and triggers retries from there.
+    * publish the error to errorMessage pubsub topic, such that administrators will have a chance to check the error details from Error Handler UI and triggers retries from there.
     * return with HTTP Status Code 500 or any other codes not in the successful code list to marked the event as nacked which will in turn trigger a retry.
     * send a shutdown signal to shutdown the service, in the hope that after the service restarted the technical error could go away.
