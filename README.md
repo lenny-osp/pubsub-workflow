@@ -73,7 +73,7 @@ To send a negative acknowledgment for the message, return any other status code.
 
 # Event workflow sample
 
-[workflow.drawio](eventmessage-flow.drawio ':include :type=code')
+![workflow](eventmessage-flow.png)
 
 ## The description of **Outbound1 event** workflow
 1. *Service1* sends *Event1* to *Outbound1* topic.
@@ -96,7 +96,7 @@ To send a negative acknowledgment for the message, return any other status code.
 6. If retry lmit is reached for *Event1*, *push-Service3* delievers the event to the designated dead letter queue *Outbound1-dl* and stops processing.
 
 ## Details of error handling process performed by *Service3*
-[error-handling.drawio](eventmessage-flow.drawio ':include :type=code')
+![error-handling](eventmessage-flow.png)
 
 1. *Service3* encounters processing error of *Event1*
 2. *Service3* writes error logs if necessary. In general, if the error is an expected behavior and no further attention or operation is needed, the error does not need to be logged.
